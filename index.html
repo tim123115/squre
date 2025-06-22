@@ -90,8 +90,11 @@
       document.getElementById('status').textContent = '任務開始！';
       document.getElementById('warning').textContent = '';
 
-      speak('開始任務');
-      initTimersAndMotion();
+      speak('開始任務').then(() => {
+        setTimeout(() => {
+          initTimersAndMotion();
+        }, 100);
+      });
     }
 
     function initTimersAndMotion() {
