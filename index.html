@@ -88,8 +88,11 @@
       document.getElementById('status').textContent = '任務開始！';
       document.getElementById('warning').textContent = '';
 
-      await speak('開始任務');
+      speak('開始任務');
+      initTimersAndMotion();
+    }
 
+    function initTimersAndMotion() {
       startTime = Date.now();
       lastMoveTime = Date.now();
 
