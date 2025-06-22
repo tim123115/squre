@@ -1,174 +1,173 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <title>蹲起任務 + 懲罰系統</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>地獄級蹲起監控系統</title>
   <style>
-    body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+    body { font-family: sans-serif; text-align: center; margin-top: 40px; }
     h1 { font-size: 2rem; }
-    #status { font-size: 1.3rem; margin: 20px; }
-    #count, #time { font-size: 2.5rem; }
-    #warning { color: red; font-size: 1.2rem; margin-top: 10px; }
-    button { font-size: 1.5rem; padding: 10px 20px; margin-top: 30px; }
+    label, input { font-size: 1.2rem; margin: 5px; }
+    button { font-size: 1.3rem; padding: 10px 20px; margin-top: 20px; }
+    #status, #warning { margin-top: 20px; font-size: 1.3rem; }
+    #warning { color: red; }
+    #count, #time { font-size: 2.5rem; margin: 10px; }
   </style>
 </head>
 <body>
-  <h1>蹲起任務 + 懲罰系統</h1>
-  <div id="status">請按開始授權感測器</div>
-  <div>目標次數：<strong id="goal">20</strong></div>
+  <h1>地獄級蹲起監控系統</h1>
+
+  <div>
+    <label>設定目標次數：</label>
+    <input type="number" id="inputCount" value="20">
+  </div>
+  <div>
+    <label>設定秒數限制：</label>
+    <input type="number" id="inputTime" value="60">
+  </div>
+  <button onclick="start()">開始任務</button>
+
+  <div id="status">請設定任務後開始</div>
   <div>目前次數：<span id="count">0</span></div>
-  <div>剩餘時間：<span id="time">60</span> 秒</div>
+  <div>剩餘時間：<span id="time">-</span> 秒</div>
   <div id="warning"></div>
-  <button onclick="start()">開始</button>
 
   <script>
-    const targetCount = 20;
-    const punishmentCount = 10;
-    const timeLimit = 60; // 秒
-    const idleLimit = 5;  // 最長偷懶秒數
-
-    let count = 0;
+    let count = 0, target = 20, timeLimit = 60;
     let isGoingDown = false;
-    let started = false;
-    let startTime;
-    let lastMoveTime;
-    let interval;
-    let idleCheckInterval;
-
-    async function requestPermissionIfNeeded() {
-      if (
-        typeof DeviceMotionEvent !== "undefined" &&
-        typeof DeviceMotionEvent.requestPermission === "function"
-      ) {
-        try {
-          const response = await DeviceMotionEvent.requestPermission();
-          if (response === "granted") {
-            return true;
-          } else {
-            alert("❌ 請授權感測器才能開始蹲起");
-            return false;
-          }
-        } catch (e) {
-          alert("❌ 要求權限錯誤：" + e);
-          return false;
-        }
-      } else {
-        return true; // 非 iOS，無需授權
-      }
-    }
+    let startTime, lastMoveTime;
+    let interval, idleCheck;
+    let idleLimit = 5;
+    let idleWarnings = 0;
+    const speech = window.speechSynthesis;
 
     async function start() {
-      const ok = await requestPermissionIfNeeded();
-      if (!ok) return;
+      if (
+        typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function'
+      ) {
+        const response = await DeviceMotionEvent.requestPermission();
+        if (response !== 'granted') {
+          alert('請授權動作感測器才能開始');
+          return;
+        }
+      }
+
+      target = parseInt(document.getElementById('inputCount').value);
+      timeLimit = parseInt(document.getElementById('inputTime').value);
+      if (target <= 0 || timeLimit <= 0) {
+        alert('請輸入有效數值');
+        return;
+      }
 
       count = 0;
-      isGoingDown = false;
-      started = true;
+      idleWarnings = 0;
+      document.getElementById('count').textContent = count;
+      document.getElementById('time').textContent = timeLimit;
+      document.getElementById('status').textContent = '任務開始！';
+      document.getElementById('warning').textContent = '';
+
       startTime = Date.now();
       lastMoveTime = Date.now();
 
-      document.getElementById("count").textContent = count;
-      document.getElementById("goal").textContent = targetCount;
-      document.getElementById("time").textContent = timeLimit;
-      document.getElementById("status").textContent = "任務開始！";
-      document.getElementById("warning").textContent = "";
-
       interval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        const remaining = timeLimit - elapsed;
-        document.getElementById("time").textContent = remaining;
-
-        if (remaining <= 0) {
+        const remain = timeLimit - elapsed;
+        document.getElementById('time').textContent = remain;
+        if (remain <= 0) {
           endTask();
         }
       }, 1000);
 
-      idleCheckInterval = setInterval(() => {
-        const now = Date.now();
-        if ((now - lastMoveTime) / 1000 > idleLimit) {
-          document.getElementById("warning").textContent = "⚠️ 太久沒動作了，快繼續蹲起！";
+      idleCheck = setInterval(() => {
+        if ((Date.now() - lastMoveTime) / 1000 > idleLimit) {
+          idleWarnings++;
+          speak('不要偷懶！繼續蹲起！');
+          document.getElementById('warning').textContent = '⚠️ 檢測到你太久沒動作';
         } else {
-          document.getElementById("warning").textContent = "";
+          document.getElementById('warning').textContent = '';
         }
       }, 1000);
 
-      window.addEventListener("devicemotion", handleMotion);
+      window.addEventListener('devicemotion', handleMotion);
     }
 
-    function handleMotion(event) {
-      const z = event.accelerationIncludingGravity.z;
-
-      if (z < -5 && !isGoingDown) {
+    function handleMotion(e) {
+      const y = e.accelerationIncludingGravity.y;
+      if (y < -5 && !isGoingDown) {
         isGoingDown = true;
-      } else if (z > 5 && isGoingDown) {
+      } else if (y > 5 && isGoingDown) {
         isGoingDown = false;
         count++;
         lastMoveTime = Date.now();
-        document.getElementById("count").textContent = count;
-
-        if (count >= targetCount) {
-          endTask(true);
-        }
+        document.getElementById('count').textContent = count;
+        speak(count.toString());
+        if (count >= target) endTask(true);
       }
     }
 
     function endTask(success = false) {
       clearInterval(interval);
-      clearInterval(idleCheckInterval);
-      window.removeEventListener("devicemotion", handleMotion);
+      clearInterval(idleCheck);
+      window.removeEventListener('devicemotion', handleMotion);
 
-      if (success) {
-        document.getElementById("status").textContent = `✅ 任務完成！總共 ${count} 下`;
+      if (success || count >= target) {
+        document.getElementById('status').textContent = `✅ 任務完成！總共 ${count} 下`;
+        speak(`任務完成。總共完成 ${count} 下。`);
       } else {
-        if (count >= targetCount) {
-          document.getElementById("status").textContent = `✅ 時間到但你剛好完成 ${count} 下`;
-        } else {
-          document.getElementById("status").textContent = `❌ 時間到只做了 ${count} 下，請補罰 ${punishmentCount} 下`;
-          document.getElementById("warning").textContent = "🔁 補罰階段開始！";
-          setTimeout(() => {
-            restartPunishment();
-          }, 3000);
-        }
+        const now = Date.now();
+        const overtimeSeconds = Math.floor((now - startTime) / 1000) - timeLimit;
+        const shortfall = target - count;
+        const punishment = shortfall + idleWarnings + Math.max(0, overtimeSeconds);
+
+        document.getElementById('status').textContent = `❌ 未完成，補罰 ${punishment} 下（缺${shortfall} + 偷懶${idleWarnings} + 超時${overtimeSeconds}）`;
+        speak(`時間到。你只做了 ${count} 下，請補罰 ${punishment} 下。`);
+        setTimeout(() => restartPunishment(punishment), 3000);
       }
     }
 
-    function restartPunishment() {
-      document.getElementById("status").textContent = "補罰階段開始！";
+    function restartPunishment(punishTarget) {
       count = 0;
+      document.getElementById('count').textContent = count;
+      document.getElementById('status').textContent = `補罰開始，請完成 ${punishTarget} 下！`;
       startTime = Date.now();
       lastMoveTime = Date.now();
-      document.getElementById("count").textContent = count;
-      document.getElementById("goal").textContent = punishmentCount;
-      document.getElementById("time").textContent = "∞";
+      document.getElementById('time').textContent = '∞';
 
-      idleCheckInterval = setInterval(() => {
-        const now = Date.now();
-        if ((now - lastMoveTime) / 1000 > idleLimit) {
-          document.getElementById("warning").textContent = "⚠️ 補罰中偷懶？快動起來！";
+      idleCheck = setInterval(() => {
+        if ((Date.now() - lastMoveTime) / 1000 > idleLimit) {
+          speak('補罰中偷懶是不行的！');
+          document.getElementById('warning').textContent = '⚠️ 偷懶警告！';
         } else {
-          document.getElementById("warning").textContent = "";
+          document.getElementById('warning').textContent = '';
         }
       }, 1000);
 
-      window.addEventListener("devicemotion", function punishMotion(event) {
-        const z = event.accelerationIncludingGravity.z;
-        if (z < -5 && !isGoingDown) {
+      window.addEventListener('devicemotion', function punishMotion(e) {
+        const y = e.accelerationIncludingGravity.y;
+        if (y < -5 && !isGoingDown) {
           isGoingDown = true;
-        } else if (z > 5 && isGoingDown) {
+        } else if (y > 5 && isGoingDown) {
           isGoingDown = false;
           count++;
           lastMoveTime = Date.now();
-          document.getElementById("count").textContent = count;
+          document.getElementById('count').textContent = count;
+          speak(count.toString());
 
-          if (count >= punishmentCount) {
-            clearInterval(idleCheckInterval);
-            window.removeEventListener("devicemotion", punishMotion);
-            document.getElementById("status").textContent = `✅ 補罰完成！共 ${count} 下`;
-            document.getElementById("warning").textContent = "";
+          if (count >= punishTarget) {
+            clearInterval(idleCheck);
+            window.removeEventListener('devicemotion', punishMotion);
+            document.getElementById('status').textContent = `✅ 補罰完成！${count} 下`;
+            speak(`補罰完成，共 ${count} 下。`);
           }
         }
       });
+    }
+
+    function speak(text) {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW';
+      speech.speak(u);
     }
   </script>
 </body>
