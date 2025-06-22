@@ -42,14 +42,22 @@
     let audioEnabled = false;
     const speech = window.speechSynthesis;
 
-    async function prepareAudioThenStart() {
-      // 解鎖語音後再呼叫 start（修正卡住問題）
+    function prepareAudioThenStart() {
       const dummy = new SpeechSynthesisUtterance('語音啟動');
       dummy.lang = 'zh-TW';
-      dummy.onend = () => {
-        audioEnabled = true;
-        start();
+      let started = false;
+
+      const launch = () => {
+        if (!started) {
+          started = true;
+          audioEnabled = true;
+          start();
+        }
       };
+
+      dummy.onend = launch;
+      setTimeout(launch, 2000); // fallback：最多等 2 秒
+
       speech.speak(dummy);
     }
 
