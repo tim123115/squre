@@ -2,7 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>蹲起任務懲罰系統</title>
+  <title>蹲起任務 + 懲罰系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body { font-family: sans-serif; text-align: center; margin-top: 50px; }
     h1 { font-size: 2rem; }
@@ -14,7 +15,7 @@
 </head>
 <body>
   <h1>蹲起任務 + 懲罰系統</h1>
-  <div id="status">請按開始</div>
+  <div id="status">請按開始授權感測器</div>
   <div>目標次數：<strong id="goal">20</strong></div>
   <div>目前次數：<span id="count">0</span></div>
   <div>剩餘時間：<span id="time">60</span> 秒</div>
@@ -22,10 +23,10 @@
   <button onclick="start()">開始</button>
 
   <script>
-    const targetCount = 20;       // 任務次數
-    const punishmentCount = 10;   // 補罰次數
-    const timeLimit = 60;         // 秒
-    const idleLimit = 5;          // 最長偷懶秒數
+    const targetCount = 20;
+    const punishmentCount = 10;
+    const timeLimit = 60; // 秒
+    const idleLimit = 5;  // 最長偷懶秒數
 
     let count = 0;
     let isGoingDown = false;
@@ -35,11 +36,31 @@
     let interval;
     let idleCheckInterval;
 
-    function start() {
-      if (!window.DeviceMotionEvent) {
-        alert("你的裝置不支援動作感測器");
-        return;
+    async function requestPermissionIfNeeded() {
+      if (
+        typeof DeviceMotionEvent !== "undefined" &&
+        typeof DeviceMotionEvent.requestPermission === "function"
+      ) {
+        try {
+          const response = await DeviceMotionEvent.requestPermission();
+          if (response === "granted") {
+            return true;
+          } else {
+            alert("❌ 請授權感測器才能開始蹲起");
+            return false;
+          }
+        } catch (e) {
+          alert("❌ 要求權限錯誤：" + e);
+          return false;
+        }
+      } else {
+        return true; // 非 iOS，無需授權
       }
+    }
+
+    async function start() {
+      const ok = await requestPermissionIfNeeded();
+      if (!ok) return;
 
       count = 0;
       isGoingDown = false;
@@ -53,7 +74,6 @@
       document.getElementById("status").textContent = "任務開始！";
       document.getElementById("warning").textContent = "";
 
-      // 倒數計時器
       interval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         const remaining = timeLimit - elapsed;
@@ -64,11 +84,10 @@
         }
       }, 1000);
 
-      // 偷懶檢查
       idleCheckInterval = setInterval(() => {
         const now = Date.now();
         if ((now - lastMoveTime) / 1000 > idleLimit) {
-          document.getElementById("warning").textContent = "⚠️ 你太久沒動作了，快繼續蹲起！";
+          document.getElementById("warning").textContent = "⚠️ 太久沒動作了，快繼續蹲起！";
         } else {
           document.getElementById("warning").textContent = "";
         }
@@ -105,10 +124,8 @@
         if (count >= targetCount) {
           document.getElementById("status").textContent = `✅ 時間到但你剛好完成 ${count} 下`;
         } else {
-          document.getElementById("status").textContent =
-            `❌ 時間到！你只做了 ${count} 下，請補罰 ${punishmentCount} 下`;
-          document.getElementById("warning").textContent =
-            "🔁 重新開始補罰階段！";
+          document.getElementById("status").textContent = `❌ 時間到只做了 ${count} 下，請補罰 ${punishmentCount} 下`;
+          document.getElementById("warning").textContent = "🔁 補罰階段開始！";
           setTimeout(() => {
             restartPunishment();
           }, 3000);
@@ -125,7 +142,6 @@
       document.getElementById("goal").textContent = punishmentCount;
       document.getElementById("time").textContent = "∞";
 
-      // 不倒數，只檢查是否完成補罰
       idleCheckInterval = setInterval(() => {
         const now = Date.now();
         if ((now - lastMoveTime) / 1000 > idleLimit) {
