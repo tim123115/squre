@@ -25,7 +25,7 @@
     <label>設定秒數限制：</label>
     <input type="number" id="inputTime" value="60">
   </div>
-  <button onclick="start()">開始任務</button>
+  <button onclick="prepareAudioThenStart()">開始任務</button>
 
   <div id="status">請設定任務後開始</div>
   <div>目前次數：<span id="count">0</span></div>
@@ -42,6 +42,17 @@
     let audioEnabled = false;
     const speech = window.speechSynthesis;
 
+    async function prepareAudioThenStart() {
+      // 先解鎖語音（讓使用者點擊觸發語音權限）
+      const dummy = new SpeechSynthesisUtterance('語音啟動');
+      dummy.lang = 'zh-TW';
+      speech.speak(dummy);
+      dummy.onend = () => {
+        audioEnabled = true;
+        start();
+      };
+    }
+
     async function start() {
       if (
         typeof DeviceMotionEvent !== 'undefined' &&
@@ -53,9 +64,6 @@
           return;
         }
       }
-
-      await speak('開始任務'); // 使用者互動觸發語音
-      audioEnabled = true;
 
       target = parseInt(document.getElementById('inputCount').value);
       timeLimit = parseInt(document.getElementById('inputTime').value);
@@ -70,6 +78,8 @@
       document.getElementById('time').textContent = timeLimit;
       document.getElementById('status').textContent = '任務開始！';
       document.getElementById('warning').textContent = '';
+
+      speak('開始任務');
 
       startTime = Date.now();
       lastMoveTime = Date.now();
