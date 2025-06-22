@@ -34,7 +34,7 @@
   <div>剩餘時間：<span id="time">-</span> 秒</div>
   <div id="warning"></div>
 
-  <div id="version">版本 1.2.4</div>
+  <div id="version">版本 1.2.3</div>
 
   <script>
     let count = 0, target = 20, timeLimit = 60;
@@ -90,11 +90,10 @@
       document.getElementById('status').textContent = '任務開始！';
       document.getElementById('warning').textContent = '';
 
-      speak('開始任務').then(() => {
-        setTimeout(() => {
-          initTimersAndMotion();
-        }, 100);
-      });
+      speak('開始任務');
+      setTimeout(() => {
+        initTimersAndMotion();
+      }, 500);
     }
 
     function initTimersAndMotion() {
