@@ -39,6 +39,7 @@
     let interval, idleCheck;
     let idleLimit = 5;
     let idleWarnings = 0;
+    let audioEnabled = false;
     const speech = window.speechSynthesis;
 
     async function start() {
@@ -52,6 +53,9 @@
           return;
         }
       }
+
+      await speak('開始任務'); // 使用者互動觸發語音
+      audioEnabled = true;
 
       target = parseInt(document.getElementById('inputCount').value);
       timeLimit = parseInt(document.getElementById('inputTime').value);
@@ -93,10 +97,14 @@
     }
 
     function handleMotion(e) {
-      const y = e.accelerationIncludingGravity.y;
-      if (y < -5 && !isGoingDown) {
+      const totalAccel = Math.sqrt(
+        e.accelerationIncludingGravity.x ** 2 +
+        e.accelerationIncludingGravity.y ** 2 +
+        e.accelerationIncludingGravity.z ** 2
+      );
+      if (totalAccel > 14 && !isGoingDown) {
         isGoingDown = true;
-      } else if (y > 5 && isGoingDown) {
+      } else if (totalAccel < 11 && isGoingDown) {
         isGoingDown = false;
         count++;
         lastMoveTime = Date.now();
@@ -144,10 +152,14 @@
       }, 1000);
 
       window.addEventListener('devicemotion', function punishMotion(e) {
-        const y = e.accelerationIncludingGravity.y;
-        if (y < -5 && !isGoingDown) {
+        const totalAccel = Math.sqrt(
+          e.accelerationIncludingGravity.x ** 2 +
+          e.accelerationIncludingGravity.y ** 2 +
+          e.accelerationIncludingGravity.z ** 2
+        );
+        if (totalAccel > 14 && !isGoingDown) {
           isGoingDown = true;
-        } else if (y > 5 && isGoingDown) {
+        } else if (totalAccel < 11 && isGoingDown) {
           isGoingDown = false;
           count++;
           lastMoveTime = Date.now();
@@ -165,9 +177,13 @@
     }
 
     function speak(text) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-TW';
-      speech.speak(u);
+      return new Promise((resolve) => {
+        if (!audioEnabled) return resolve();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-TW';
+        u.onend = resolve;
+        speech.speak(u);
+      });
     }
   </script>
 </body>
