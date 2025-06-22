@@ -43,14 +43,14 @@
     const speech = window.speechSynthesis;
 
     async function prepareAudioThenStart() {
-      // 先解鎖語音（讓使用者點擊觸發語音權限）
+      // 解鎖語音後再呼叫 start（修正卡住問題）
       const dummy = new SpeechSynthesisUtterance('語音啟動');
       dummy.lang = 'zh-TW';
-      speech.speak(dummy);
       dummy.onend = () => {
         audioEnabled = true;
         start();
       };
+      speech.speak(dummy);
     }
 
     async function start() {
@@ -79,7 +79,7 @@
       document.getElementById('status').textContent = '任務開始！';
       document.getElementById('warning').textContent = '';
 
-      speak('開始任務');
+      await speak('開始任務');
 
       startTime = Date.now();
       lastMoveTime = Date.now();
